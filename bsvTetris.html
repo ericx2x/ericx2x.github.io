@@ -1,0 +1,402 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://www.moneybutton.com/moneybutton.js"></script>
+    <title>Tetris SV</title>
+    <h2>Tetris SV</h2>
+    <style>
+        body {
+            background: #202028;
+            color: #fff;
+            font-family: sans-serif;
+            font-size: 2em;
+            text-align: center;
+        }
+        canvas {
+            border: solid .2em #fff;
+            height: 65vh;
+        }
+    </style>
+	<meta charset="utf-8" />
+</head>
+<body>
+    <div id="score"></div>
+    <canvas id="tetris" width="240" height="400"></canvas>
+    <br><br>
+    z,x to rotate, &larr;,&darr;,&rarr; key to move pieces
+    <br>
+    <div id='asd' style='display:none'>hey</div>
+
+
+<script>
+  const canvas = document.getElementById('tetris');
+  const context = canvas.getContext('2d');
+  context.scale(20, 20);
+
+  function arenaSweep() {
+      let rowCount = 1;
+      outer: for(let y = arena.length - 1; y >= 0; y--) {
+          for(let x = 0; x < arena[y].length; x++) {
+              if(arena[y][x] === 0) {
+                  continue outer;
+              }
+          }
+          const row = arena.splice(y, 1)[0].fill(0);
+          arena.unshift(row);
+          y++;
+
+          player2.score += rowCount * 10;
+          rowCount *= 2;
+      }
+  }
+
+  function collide(arena, player2) {
+      const [m, o] = [player2.matrix, player2.pos];
+      for(let y = 0; y < m.length; y++) {
+          for(let x = 0; x < m[y].length; x++) {
+              if(m[y][x] !== 0 && (arena[y + o.y] && arena[y + o.y][x + o.x]) !== 0) {
+                  return true;
+              }
+          }
+      }
+      return false;
+  }
+
+  function createMatrix(w, h) {
+      const matrix = [];
+      while(h--) {
+          matrix.push(new Array(w).fill(0));
+      }
+      return matrix;
+  }
+
+  function createPiece(type) {
+      if(type === 'T') {
+          return [
+              [0,0,0],
+              [1,1,1],
+              [0,1,0],
+          ];
+      } else if(type === 'O') {
+          return [
+              [2,2],
+              [2,2],
+          ];
+      } else if(type === 'L') {
+          return [
+              [0,3,0],
+              [0,3,0],
+              [0,3,3],
+          ];
+      } else if(type === 'J') {
+          return [
+              [0,4,0],
+              [0,4,0],
+              [4,4,0],
+          ];
+      } else if(type === 'I') {
+          return [
+              [0,5,0,0],
+              [0,5,0,0],
+              [0,5,0,0],
+              [0,5,0,0],
+          ];
+      } else if(type === 'S') {
+          return [
+              [0,6,6],
+              [6,6,0],
+              [0,0,0],
+          ];
+      } else if(type === 'Z') {
+          return [
+              [7,7,0],
+              [0,7,7],
+              [0,0,0],
+          ];
+      }
+  }
+
+  function draw() {
+      context.fillStyle = '#000'; // set color
+      context.fillRect(0, 0, canvas.width, canvas.height); // draw rectangle
+
+      drawMatrix(arena, {x: 0, y: 0});
+      drawMatrix(player2.matrix, player2.pos);
+  }
+
+  function drawMatrix(matrix, offset) {
+      matrix.forEach((row, y) => {
+          row.forEach((value, x) => {
+              if (value != 0) {
+                  context.fillStyle = colors[value];
+                  context.fillRect(x + offset.x, y + offset.y, 1, 1);
+              }
+          });
+      });
+  }
+
+  function playerDrop() {
+      player2.pos.y++;
+      if(collide(arena, player2)) {
+          player2.pos.y--;
+          merge(arena, player2);
+          playerReset();
+          arenaSweep();
+          updateScore();
+      }
+      dropCounter = 0;
+  }
+
+  function playerMove(dir) {
+      player2.pos.x += dir;
+      if(collide(arena, player2)) {
+          player2.pos.x -= dir;
+      }
+  }
+
+  function playerReset() {
+      const pieces = 'ILJOTSZ';
+      player2.matrix = createPiece(pieces[pieces.length * Math.random() | 0]);
+      player2.pos.y = 0;
+      player2.pos.x = (arena[0].length / 2 | 0) -
+                     (player2.matrix[0].length / 2 | 0);
+      if(collide(arena, player2)) {
+          arena.forEach(row => row.fill(0));
+          player2.score = 0;
+          updateScore();
+      }
+  }
+
+  function playerRotate(dir) {
+      rotate(player2.matrix, dir);
+      if(collide(arena, player2)) {
+          rotate(player2.matrix, -dir);
+      }
+  }
+
+  function rotate(matrix, dir) {
+      for(let y = 0; y < matrix.length; y++) {
+          for(let x = y + 1; x < matrix.length; x++) {
+              [
+                  matrix[x][y],
+                  matrix[y][x],
+              ] = [
+                  matrix[y][x],
+                  matrix[x][y],
+              ];
+          }
+      }
+
+      if(dir > 0) {
+          matrix.forEach(row => row.reverse());
+      } else {
+          matrix.reverse();
+      }
+  }
+
+  let dropCounter = 0;
+  let dropInterval = 1000;
+
+  let lastTime = 0;
+
+  function update(time = 0) {
+      const deltaTime = time - lastTime; // millisecond
+      lastTime = time;
+      dropCounter += deltaTime;
+      if(dropCounter > dropInterval) {
+          playerDrop();
+      }
+      draw();
+      requestAnimationFrame(update);
+  }
+
+  function updateScore() {
+      document.getElementById("score").innerText = player2.score;
+  }
+
+  const colors = [null,'red','blue','violet','green','purple','orange','pink'];
+
+  const arena = createMatrix(12, 20);
+
+  function merge(arena, player2){
+      player2.matrix.forEach((row, y) => {
+          row.forEach((value, x) => {
+              if(value !== 0) {
+                  arena[y + player2.pos.y][x + player2.pos.x] = value;
+              }
+          });
+      });
+  }
+  const player2 = {
+      pos: { x: 5, y: 5 },
+      matrix: null,
+      score: 87162,
+  }
+  
+  window.addEventListener("keydown", function(e) {
+    // space and arrow keys
+    if([32, 37, 38, 39, 40].indexOf(e.keyCode) > -1) {
+        e.preventDefault();
+    }
+}, false);
+
+  document.addEventListener('keydown', event => {
+      //console.log(event);
+      if(event.keyCode === 37) { // keycode lookup: http://pomle.github.io/keycode/
+          playerMove(-1);
+      } else if(event.keyCode === 39) {
+          playerMove(1);
+      } else if(event.keyCode === 40) {
+          playerDrop();
+      } else if(event.keyCode === 90) {
+          playerRotate(-1);
+      } else if(event.keyCode === 88) {
+          playerRotate(1);
+      }
+  });
+
+  playerReset();
+  updateScore();
+  update();
+
+
+function myfunction2(){
+  function hex2a(hexx) {
+    var hex = hexx.toString();//force conversion
+    var str = '';
+    for (var i = 0; (i < hex.length && hex.substr(i, 2) !== '00'); i += 2)
+        str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
+    return str;
+}
+var song=hex2a(document.getElementById('asd').innerHTML);
+document.getElementById('asd').innerHTML=song
+}
+
+
+    var log = document.getElementById('log');
+    var btn = document.getElementById('btn');
+    function report(s) { return function() { log.innerHTML = s; }; }
+//    JZZ.synth.Tiny.register('Web Audio');
+//    var out = JZZ().or(report('Cannot start MIDI engine!')).openMidiOut().or(report('Cannot open MIDI Out!'));
+    var player;
+    var playing = false;
+    function clear() {
+      if (player) player.stop();
+      playing = false;
+      log.innerHTML = 'please wait...';
+      btn.innerHTML = 'Play';
+      btn.disabled = true;
+    }
+    function load(data, name) {
+      try {
+        player = JZZ.MIDI.SMF(data).player();
+        player.connect(out);
+        player.onEnd = function() {
+          playing = false;
+          btn.innerHTML = 'Play';
+        }
+        playing = true;
+        player.play();
+        log.innerHTML = name;
+        btn.innerHTML = 'Stop';
+        btn.disabled = false;
+      }
+      catch (e) {
+        log.innerHTML = e;
+      }
+    }
+    function playStop() {
+      if (playing) {
+        player.stop();
+        playing = false;
+        btn.innerHTML = 'Play';
+      }
+      else {
+        player.play();
+        playing = true;
+        btn.innerHTML = 'Stop';
+      }
+    }
+
+
+// search script using Babel BITDB
+    var username = 'Eric'
+     var query = {
+       "v": 3,
+       "q": {
+         "find": {
+            "$text": { "$search": "tetrissvscorex2x" }
+         }
+       },
+       "r": {
+         "f": "[ .[] | {msg: .out[0].s3} ]"
+       }
+     }
+
+     var b64 = btoa(JSON.stringify(query));
+     var url = "https://babel.bitdb.network/q/1DHDifPvtPgKFPZMRSxmVHhiPvFmxZwbfh/" + b64;
+
+     var header = {
+       headers: { key: ['1K5w2AjkHLi32et2RUbwdbkLQmUvJZP3zy'] }
+     };
+
+//    console.log("url, header");
+//    console.log(url, header);
+    
+     // Make an HTTP request to bitdb.network public endpoint
+     fetch(url, header).then(function(r) {
+       return r.json()
+     }).then(function(r) {
+       // "r.c" stands for confirmed transactions response array
+       // Parse the response and render the results on the screen
+
+       r.c.forEach(function(output) {
+         var div = document.createElement("div");
+         div.innerHTML = output.msg.substr(16);
+         document.body.appendChild(div)
+       })
+
+       r.u.forEach(function(output) {
+         var div = document.createElement("div");
+         div.innerHTML = output.msg.substr(16);
+         document.body.appendChild(div)
+       })
+     })
+
+//  pay with money button script
+
+     function myfunction(){
+       username = document.getElementById('input_id2').value;
+       var variable = player2.score;
+       document.getElementById('alert').innerHTML = username + ': '+ variable ;
+
+     const div = document.getElementById('some-div')         
+         
+     moneyButton.render(div, {
+       to: "1219",
+       amount: "0.00038",
+       currency: "USD",
+       label: "swipe",
+       clientIdentifier: "d509633e08a5609d7cb3e4f5358cd075",
+       buttonId: "1553260846333",
+       buttonData: "{}",
+       type: "tip",
+       opReturn: 'tetrissvscorex2x '+ username+ ": "+variable,
+       onPayment: function (arg) { console.log('onPayment', arg) },
+       onError: function (arg) { console.log('onError', arg) }
+     })
+     }
+    </script>
+    <div>Save Hi Score</div>
+<form>
+  <input type="text" id="input_id2" value="Enter Username Here" onfocus="this.value=''">
+  <div id="alert" style="color: red"></div>
+</form>
+<div id='some-div'></div>
+            
+            
+<button onclick='myfunction()'>0.00038¢ to render money button & save Hi score</button><br><br>
+        <img src='https://i.imgur.com/vh0z89y.png' height='150'>
+    </body>
+    </html>
